@@ -33,6 +33,16 @@ cable_slot_depth = 3;         // mm - depth of routing channel
 
 /* [Mounting Options] */
 add_mounting_tabs = true;     // add external mounting tabs
+
+/* [Grille Parameters] */
+grille_thickness = 2;         // mm - thickness of grille bars
+grille_bar_width = 2;         // mm - width of each bar
+grille_bar_spacing = 8;       // mm - space between bars
+grille_style = "radial";      // [radial, parallel, hex]
+
+/* [Speaker Mounting] */
+speaker_flange_dia = 85;      // mm - speaker flange/rim diameter
+speaker_flange_depth = 2;     // mm - depth of recess for speaker flange
 mounting_tab_width = 15;      // mm
 mounting_tab_hole = 5;        // mm - hole for M5 screw
 
@@ -262,19 +272,101 @@ module square_enclosure() {
         }  // end union
     }
 
+    // Grille modules
+    module radial_grille() {
+        num_bars = floor(speaker_cutout / (grille_bar_width + grille_bar_spacing));
+        intersection() {
+            cylinder(h = grille_thickness, d = speaker_cutout - 1);
+            union() {
+                // Radial bars
+                for (i = [0:5]) {
+                    rotate([0, 0, i * 30])
+                    translate([-grille_bar_width/2, 0, 0])
+                    cube([grille_bar_width, speaker_cutout/2, grille_thickness]);
+                }
+                // Concentric rings
+                for (r = [15 : grille_bar_spacing + grille_bar_width : speaker_cutout/2]) {
+                    difference() {
+                        cylinder(h = grille_thickness, d = r*2 + grille_bar_width);
+                        translate([0, 0, -0.5])
+                        cylinder(h = grille_thickness + 1, d = r*2 - grille_bar_width);
+                    }
+                }
+            }
+        }
+    }
+
+    module parallel_grille() {
+        intersection() {
+            cylinder(h = grille_thickness, d = speaker_cutout - 1);
+            union() {
+                for (x = [-speaker_cutout/2 : grille_bar_spacing + grille_bar_width : speaker_cutout/2]) {
+                    translate([x - grille_bar_width/2, -speaker_cutout/2, 0])
+                    cube([grille_bar_width, speaker_cutout, grille_thickness]);
+                }
+            }
+        }
+    }
+
+    module hex_grille() {
+        hex_size = grille_bar_spacing;
+        intersection() {
+            cylinder(h = grille_thickness, d = speaker_cutout - 1);
+            union() {
+                for (row = [-5:5]) {
+                    for (col = [-5:5]) {
+                        x = col * (hex_size * 1.5) + (row % 2) * (hex_size * 0.75);
+                        y = row * (hex_size * 0.866);
+                        translate([x, y, 0])
+                        difference() {
+                            cylinder(h = grille_thickness, d = hex_size + grille_bar_width, $fn = 6);
+                            translate([0, 0, -0.5])
+                            cylinder(h = grille_thickness + 1, d = hex_size - grille_bar_width, $fn = 6);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     module baffle() {
         baffle_size = internal_diameter + 0.2;  // slight clearance
+
         difference() {
-            rounded_box(baffle_size, front_baffle_thickness, corner_radius - wall_thickness - 0.1);
+            union() {
+                // Main baffle body
+                rounded_box(baffle_size, front_baffle_thickness, corner_radius - wall_thickness - 0.1);
 
-            // Speaker cutout
+                // Grille on top
+                translate([0, 0, front_baffle_thickness])
+                if (grille_style == "radial") radial_grille();
+                else if (grille_style == "hex") hex_grille();
+                else parallel_grille();
+            }
+
+            // Speaker flange recess from bottom (speaker mounts from inside)
             translate([0, 0, -0.5])
-            speaker_cutout();
+            cylinder(h = speaker_flange_depth + 0.5, d = speaker_flange_dia);
 
-            // Screw holes (countersunk)
+            // Sound opening through baffle (smaller than flange)
+            translate([0, 0, -0.5])
+            cylinder(h = front_baffle_thickness + 1, d = speaker_cutout);
+
+            // Speaker mounting holes from bottom
+            for (i = [0:num_mounting_holes-1]) {
+                angle = i * 360 / num_mounting_holes + 45;  // offset 45° from corners
+                translate([
+                    cos(angle) * mounting_holes_pcd / 2,
+                    sin(angle) * mounting_holes_pcd / 2,
+                    -0.5
+                ])
+                cylinder(h = speaker_flange_depth + 1, d = mounting_hole_dia);
+            }
+
+            // Corner screw holes (countersunk from top)
             corner_screw_positions() {
-                cylinder(h = front_baffle_thickness + 1, d = screw_hole_dia);
-                translate([0, 0, front_baffle_thickness - 2])
+                cylinder(h = front_baffle_thickness + grille_thickness + 1, d = screw_hole_dia);
+                translate([0, 0, front_baffle_thickness + grille_thickness - 2])
                 cylinder(h = 3, d1 = screw_hole_dia, d2 = screw_hole_dia * 2);
             }
         }
