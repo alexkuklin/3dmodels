@@ -147,6 +147,9 @@ module square_enclosure() {
         }
     }
 
+    screw_boss_dia = screw_hole_dia + 5;  // M3 + wall
+    screw_boss_height = body_depth - baffle_lip;
+
     module body() {
         difference() {
             union() {
@@ -165,6 +168,10 @@ module square_enclosure() {
                         }
                     }
                 }
+
+                // Screw bosses for baffle mounting
+                corner_screw_positions()
+                    cylinder(h = screw_boss_height, d = screw_boss_dia);
             }
 
             // Internal cavity (leave lip for baffle)
@@ -175,10 +182,10 @@ module square_enclosure() {
             translate([0, 0, body_depth - baffle_lip])
             rounded_box(internal_diameter + 0.4, baffle_lip + 1, corner_radius - wall_thickness);
 
-            // Screw holes for baffle
-            translate([0, 0, body_depth - baffle_lip - 8])
+            // Screw pilot holes for baffle (2.5mm for M3 self-tapping)
             corner_screw_positions()
-                cylinder(h = 10, d = screw_hole_dia);
+                translate([0, 0, -0.5])
+                cylinder(h = screw_boss_height + 1, d = screw_hole_dia - 0.5);
 
             // Mounting tab holes
             if (add_mounting_tabs) {
