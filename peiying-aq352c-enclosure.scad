@@ -198,16 +198,18 @@ module square_enclosure() {
             translate([-cable_slot_width/2, -internal_diameter/2 + 2, wall_thickness - cable_slot_depth])
             cube([cable_slot_width, internal_diameter/2, cable_slot_depth + 0.1]);
 
-            // Bass port hole through back wall
+            // Bass port hole through side wall
             if (add_port) {
-                translate([box_size/4, 0, -0.5])
-                cylinder(h = wall_thickness + 1, d = port_diameter);
+                translate([box_size/2 - wall_thickness/2, 0, wall_thickness + port_diameter/2 + 5])
+                rotate([0, 90, 0])
+                cylinder(h = wall_thickness + 1, d = port_diameter, center = true);
             }
         }
 
-        // Bass port tube (inside enclosure)
+        // Bass port tube (inside enclosure, extending inward from side)
         if (add_port) {
-            translate([box_size/4, 0, wall_thickness])
+            translate([box_size/2 - wall_thickness, 0, wall_thickness + port_diameter/2 + 5])
+            rotate([0, -90, 0])
             difference() {
                 cylinder(h = port_length, d = port_diameter + 4);
                 translate([0, 0, -0.5])
