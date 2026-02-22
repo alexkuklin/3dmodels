@@ -139,15 +139,48 @@ module square_enclosure() {
         }
     }
 
-    // Position bosses in corners, connecting wall to wall
-    screw_boss_dia = 10;  // larger boss for strength
-    screw_boss_height = body_depth - baffle_lip;
-    boss_offset = internal_diameter/2 - screw_boss_dia/2 + 2;  // inside corners
+    // Screw boss parameters
+    screw_boss_dia = 10;  // boss diameter at top for screw
+    screw_boss_top_height = 10;  // solid cylinder height at top
+    max_overhang = 45;  // degrees - printable without support
+
+    // Position bosses in internal corners touching walls
+    boss_inset = 2;  // how far boss center is from internal wall
+    boss_offset = internal_diameter/2 - boss_inset;
 
     module corner_screw_positions() {
         for (x = [-1, 1], y = [-1, 1]) {
             translate([x * boss_offset, y * boss_offset, 0])
+            rotate([0, 0, atan2(y, x) + 180])  // rotate to face corner
             children();
+        }
+    }
+
+    // Printable boss that grows from corner walls at 45°
+    module printable_boss() {
+        boss_top_z = body_depth - baffle_lip;
+        taper_height = (screw_boss_dia/2) / tan(max_overhang);  // height needed for 45° taper
+        taper_start_z = boss_top_z - screw_boss_top_height - taper_height;
+
+        // Only build what's needed above the floor
+        actual_taper_start = max(wall_thickness, taper_start_z);
+
+        union() {
+            // Top cylinder for screw engagement
+            translate([0, 0, boss_top_z - screw_boss_top_height])
+            cylinder(h = screw_boss_top_height, d = screw_boss_dia);
+
+            // Tapered section - cone growing from point to full diameter
+            if (taper_start_z > wall_thickness) {
+                translate([0, 0, taper_start_z])
+                cylinder(h = taper_height, d1 = 0.1, d2 = screw_boss_dia);
+            } else {
+                // Taper starts at or below floor - start from floor with partial diameter
+                floor_dia = screw_boss_dia * (wall_thickness - taper_start_z + taper_height) / taper_height;
+                translate([0, 0, wall_thickness])
+                cylinder(h = boss_top_z - screw_boss_top_height - wall_thickness,
+                        d1 = min(floor_dia, screw_boss_dia), d2 = screw_boss_dia);
+            }
         }
     }
 
@@ -206,14 +239,14 @@ module square_enclosure() {
                 }
             }  // end main difference
 
-            // Screw bosses - added after cavity cut so they remain solid
+            // Screw bosses - printable with 45° taper, no supports needed
             difference() {
                 corner_screw_positions()
-                    cylinder(h = screw_boss_height, d = screw_boss_dia);
+                    printable_boss();
                 // Pilot holes for M3 self-tapping
                 corner_screw_positions()
                     translate([0, 0, -0.5])
-                    cylinder(h = screw_boss_height + 1, d = screw_hole_dia - 0.5);
+                    cylinder(h = body_depth, d = screw_hole_dia - 0.5);
             }
 
             // Bass port tube (inside enclosure, extending inward from side)
