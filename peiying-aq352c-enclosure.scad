@@ -139,90 +139,94 @@ module square_enclosure() {
         }
     }
 
+    // Position bosses in corners, connecting wall to wall
+    screw_boss_dia = 10;  // larger boss for strength
+    screw_boss_height = body_depth - baffle_lip;
+    boss_offset = internal_diameter/2 - screw_boss_dia/2 + 2;  // inside corners
+
     module corner_screw_positions() {
-        offset = box_size/2 - corner_radius - 3;
         for (x = [-1, 1], y = [-1, 1]) {
-            translate([x * offset, y * offset, 0])
+            translate([x * boss_offset, y * boss_offset, 0])
             children();
         }
     }
 
-    screw_boss_dia = screw_hole_dia + 5;  // M3 + wall
-    screw_boss_height = body_depth - baffle_lip;
-
     module body() {
-        difference() {
-            union() {
-                // Main body
-                rounded_box(box_size, body_depth, corner_radius);
+        union() {
+            difference() {
+                union() {
+                    // Main body
+                    rounded_box(box_size, body_depth, corner_radius);
 
-                // Mounting tabs
-                if (add_mounting_tabs) {
-                    for (angle = [0, 180]) {
-                        rotate([0, 0, angle])
-                        translate([box_size/2 + mounting_tab_width/2 - 5, 0, 0])
-                        hull() {
-                            cylinder(h = wall_thickness, d = mounting_tab_width);
-                            translate([-mounting_tab_width/2, 0, 0])
-                            cylinder(h = wall_thickness, d = mounting_tab_width);
+                    // Mounting tabs
+                    if (add_mounting_tabs) {
+                        for (angle = [0, 180]) {
+                            rotate([0, 0, angle])
+                            translate([box_size/2 + mounting_tab_width/2 - 5, 0, 0])
+                            hull() {
+                                cylinder(h = wall_thickness, d = mounting_tab_width);
+                                translate([-mounting_tab_width/2, 0, 0])
+                                cylinder(h = wall_thickness, d = mounting_tab_width);
+                            }
                         }
                     }
                 }
 
-                // Screw bosses for baffle mounting
+                // Internal cavity (leave lip for baffle)
+                translate([0, 0, wall_thickness])
+                rounded_box(internal_diameter, body_depth, corner_radius - wall_thickness);
+
+                // Baffle recess
+                translate([0, 0, body_depth - baffle_lip])
+                rounded_box(internal_diameter + 0.4, baffle_lip + 1, corner_radius - wall_thickness);
+
+                // Mounting tab holes
+                if (add_mounting_tabs) {
+                    for (angle = [0, 180]) {
+                        rotate([0, 0, angle])
+                        translate([box_size/2 + mounting_tab_width/2, 0, -0.5])
+                        cylinder(h = wall_thickness + 1, d = mounting_tab_hole);
+                    }
+                }
+
+                // Cable entry hole
+                translate([0, -box_size/2 + wall_thickness/2, wall_thickness + 12])
+                rotate([90, 0, 0])
+                cylinder(h = wall_thickness + 1, d = cable_hole_dia, center = true);
+
+                // Cable routing channel on bottom interior
+                translate([-cable_slot_width/2, -internal_diameter/2 + 2, wall_thickness - cable_slot_depth])
+                cube([cable_slot_width, internal_diameter/2, cable_slot_depth + 0.1]);
+
+                // Bass port hole through side wall
+                if (add_port) {
+                    translate([box_size/2 - wall_thickness/2, 0, wall_thickness + port_diameter/2 + 5])
+                    rotate([0, 90, 0])
+                    cylinder(h = wall_thickness + 1, d = port_diameter, center = true);
+                }
+            }  // end main difference
+
+            // Screw bosses - added after cavity cut so they remain solid
+            difference() {
                 corner_screw_positions()
                     cylinder(h = screw_boss_height, d = screw_boss_dia);
+                // Pilot holes for M3 self-tapping
+                corner_screw_positions()
+                    translate([0, 0, -0.5])
+                    cylinder(h = screw_boss_height + 1, d = screw_hole_dia - 0.5);
             }
 
-            // Internal cavity (leave lip for baffle)
-            translate([0, 0, wall_thickness])
-            rounded_box(internal_diameter, body_depth, corner_radius - wall_thickness);
-
-            // Baffle recess
-            translate([0, 0, body_depth - baffle_lip])
-            rounded_box(internal_diameter + 0.4, baffle_lip + 1, corner_radius - wall_thickness);
-
-            // Screw pilot holes for baffle (2.5mm for M3 self-tapping)
-            corner_screw_positions()
-                translate([0, 0, -0.5])
-                cylinder(h = screw_boss_height + 1, d = screw_hole_dia - 0.5);
-
-            // Mounting tab holes
-            if (add_mounting_tabs) {
-                for (angle = [0, 180]) {
-                    rotate([0, 0, angle])
-                    translate([box_size/2 + mounting_tab_width/2, 0, -0.5])
-                    cylinder(h = wall_thickness + 1, d = mounting_tab_hole);
+            // Bass port tube (inside enclosure, extending inward from side)
+            if (add_port) {
+                translate([box_size/2 - wall_thickness, 0, wall_thickness + port_diameter/2 + 5])
+                rotate([0, -90, 0])
+                difference() {
+                    cylinder(h = port_length, d = port_diameter + 4);
+                    translate([0, 0, -0.5])
+                    cylinder(h = port_length + 1, d = port_diameter);
                 }
             }
-
-            // Cable entry hole
-            translate([0, -box_size/2 + wall_thickness/2, wall_thickness + 12])
-            rotate([90, 0, 0])
-            cylinder(h = wall_thickness + 1, d = cable_hole_dia, center = true);
-
-            // Cable routing channel on bottom interior
-            translate([-cable_slot_width/2, -internal_diameter/2 + 2, wall_thickness - cable_slot_depth])
-            cube([cable_slot_width, internal_diameter/2, cable_slot_depth + 0.1]);
-
-            // Bass port hole through side wall
-            if (add_port) {
-                translate([box_size/2 - wall_thickness/2, 0, wall_thickness + port_diameter/2 + 5])
-                rotate([0, 90, 0])
-                cylinder(h = wall_thickness + 1, d = port_diameter, center = true);
-            }
-        }
-
-        // Bass port tube (inside enclosure, extending inward from side)
-        if (add_port) {
-            translate([box_size/2 - wall_thickness, 0, wall_thickness + port_diameter/2 + 5])
-            rotate([0, -90, 0])
-            difference() {
-                cylinder(h = port_length, d = port_diameter + 4);
-                translate([0, 0, -0.5])
-                cylinder(h = port_length + 1, d = port_diameter);
-            }
-        }
+        }  // end union
     }
 
     module baffle() {
