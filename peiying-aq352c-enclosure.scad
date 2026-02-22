@@ -31,8 +31,10 @@ cable_hole_dia = 10;          // mm - main cable entry hole
 cable_slot_width = 6;         // mm - slot width for wire routing
 cable_slot_depth = 3;         // mm - depth of routing channel
 
-/* [Mounting Options] */
-add_mounting_tabs = true;     // add external mounting tabs
+/* [Wall Mounting] */
+keyhole_screw_head = 8;       // mm - diameter for screw head to pass through
+keyhole_screw_shaft = 4;      // mm - diameter for screw shaft
+keyhole_length = 10;          // mm - length of slot for hanging
 
 /* [Grille Parameters] */
 grille_thickness = 2;         // mm - thickness of grille bars
@@ -43,8 +45,6 @@ grille_style = "radial";      // [radial, parallel, hex]
 /* [Speaker Mounting] */
 speaker_flange_dia = 85;      // mm - speaker flange/rim diameter
 speaker_flange_depth = 2;     // mm - depth of recess for speaker flange
-mounting_tab_width = 15;      // mm
-mounting_tab_hole = 5;        // mm - hole for M5 screw
 
 /* [Calculated Values] */
 internal_depth = speaker_depth + internal_clearance;
@@ -197,23 +197,8 @@ module square_enclosure() {
     module body() {
         union() {
             difference() {
-                union() {
-                    // Main body
-                    rounded_box(box_size, body_depth, corner_radius);
-
-                    // Mounting tabs
-                    if (add_mounting_tabs) {
-                        for (angle = [0, 180]) {
-                            rotate([0, 0, angle])
-                            translate([box_size/2 + mounting_tab_width/2 - 5, 0, 0])
-                            hull() {
-                                cylinder(h = wall_thickness, d = mounting_tab_width);
-                                translate([-mounting_tab_width/2, 0, 0])
-                                cylinder(h = wall_thickness, d = mounting_tab_width);
-                            }
-                        }
-                    }
-                }
+                // Main body
+                rounded_box(box_size, body_depth, corner_radius);
 
                 // Internal cavity (leave lip for baffle)
                 translate([0, 0, wall_thickness])
@@ -223,12 +208,22 @@ module square_enclosure() {
                 translate([0, 0, body_depth - baffle_lip])
                 rounded_box(internal_diameter + 0.4, baffle_lip + 1, corner_radius - wall_thickness);
 
-                // Mounting tab holes
-                if (add_mounting_tabs) {
-                    for (angle = [0, 180]) {
-                        rotate([0, 0, angle])
-                        translate([box_size/2 + mounting_tab_width/2, 0, -0.5])
-                        cylinder(h = wall_thickness + 1, d = mounting_tab_hole);
+                // Keyhole slot for wall hanging (on back/bottom wall)
+                translate([0, 0, wall_thickness/2]) {
+                    // Large hole for screw head
+                    translate([0, keyhole_length/2, 0])
+                    rotate([0, 90, 0])
+                    cylinder(h = box_size + 1, d = keyhole_screw_head, center = true);
+
+                    // Slot for screw shaft
+                    hull() {
+                        translate([0, keyhole_length/2, 0])
+                        rotate([0, 90, 0])
+                        cylinder(h = box_size + 1, d = keyhole_screw_shaft, center = true);
+
+                        translate([0, -keyhole_length/2, 0])
+                        rotate([0, 90, 0])
+                        cylinder(h = box_size + 1, d = keyhole_screw_shaft, center = true);
                     }
                 }
 
