@@ -1,0 +1,58 @@
+name: Render OpenSCAD to STL
+
+on:
+  push:
+    paths:
+      - '**.scad'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed .scad files
+        id: changed-files
+        run: |
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            changed=$(git diff --name-only --diff-filter=ACM HEAD^ HEAD -- '*.scad' | tr '\n' ' ')
+          else
+            # First commit - get all .scad files
+            changed=$(git ls-tree -r --name-only HEAD -- '*.scad' | tr '\n' ' ')
+          fi
+          echo "files=$changed" >> $GITHUB_OUTPUT
+          echo "Changed .scad files: $changed"
+
+      - name: Install OpenSCAD
+        if: steps.changed-files.outputs.files != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad xvfb
+
+      - name: Render changed OpenSCAD files
+        if: steps.changed-files.outputs.files != ''
+        run: |
+          mkdir -p stl_output
+          for scad_file in ${{ steps.changed-files.outputs.files }}; do
+            if [ -f "$scad_file" ]; then
+              filename=$(basename "$scad_file" .scad)
+              dirname=$(dirname "$scad_file")
+              output_dir="stl_output/${dirname#./}"
+              mkdir -p "$output_dir"
+              echo "Rendering: $scad_file -> $output_dir/${filename}.stl"
+              xvfb-run -a openscad -o "$output_dir/${filename}.stl" "$scad_file"
+            fi
+          done
+
+      - name: Upload STL artifacts
+        if: steps.changed-files.outputs.files != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: stl-models
+          path: stl_output/
+          if-no-files-found: warn
